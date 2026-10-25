@@ -92,16 +92,17 @@ class LauncherEngine(private val context: Context) {
      * delay between launches, then tile them into a grid.
      * Requires root + freeform enabled.
      */
-    suspend fun launchAllFreeform(
+    suspend fun launchSelectedFreeform(
+        selectedPackages: Set<String>,
         delaySeconds: Float,
         gapPx: Int,
         columnCount: Int,
         autoColumns: Boolean,
         log: (String) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        val installs = detectRobloxInstalls()
+        val installs = detectRobloxInstalls().filter { it.packageName in selectedPackages }
         if (installs.isEmpty()) {
-            log("Tidak ada Roblox terdeteksi.")
+            log("Tidak ada instalasi Roblox yang dipilih atau terdeteksi.")
             return@withContext
         }
         log("Terdeteksi ${installs.size} install.")
