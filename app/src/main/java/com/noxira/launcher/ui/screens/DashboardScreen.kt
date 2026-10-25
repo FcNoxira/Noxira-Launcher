@@ -71,7 +71,10 @@ fun DashboardScreen(
             installs = state.robloxInstalls,
             launchState = state.launchState,
             loading = state.robloxRefreshing,
+            selectedPackages = state.selectedRobloxPackages,
             modifier = hPad,
+            onToggleSelection = vm::toggleRobloxSelection,
+            onSelectCount = vm::selectRobloxCount,
             onLaunch = vm::launchAllRoblox,
             onRefresh = vm::refreshRoblox,
         )
@@ -173,7 +176,10 @@ private fun RobloxCard(
     installs: List<com.noxira.launcher.core.launcher.InstalledApp>,
     launchState: OperationState,
     loading: Boolean,
+    selectedPackages: Set<String>,
     modifier: Modifier,
+    onToggleSelection: (String, Boolean) -> Unit,
+    onSelectCount: (Int) -> Unit,
     onLaunch: () -> Unit,
     onRefresh: () -> Unit,
 ) {
@@ -216,16 +222,35 @@ private fun RobloxCard(
         GlassDivider()
         Spacer(Modifier.height(NoxiraSpacing.md))
 
-        // Install list if multiple
-        if (installs.size > 1) {
+        // Choose which Roblox instances should be launched.
+        if (installs.isNotEmpty()) {
+            Text("Pilih Roblox yang ingin dibuka", style = NoxiraType.CardTitle)
             installs.forEach { app ->
-                Text(
-                    "• ${app.label} (${app.packageName})",
-                    style = NoxiraType.BodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(
+                        checked = app.packageName in selectedPackages,
+                        onCheckedChange = { checked -> onToggleSelection(app.packageName, checked) },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = NoxiraColors.Silver,
+                            checkmarkColor = NoxiraColors.BgMain,
+                        ),
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(app.label, style = NoxiraType.Body)
+                        Text(app.packageName, style = NoxiraType.BodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(NoxiraSpacing.sm)) {
+                NoxiraOutlineButton(text = "PILIH 1", onClick = { onSelectCount(1) }, modifier = Modifier.weight(1f))
+                NoxiraOutlineButton(text = "PILIH 2", onClick = { onSelectCount(2) }, modifier = Modifier.weight(1f))
+                NoxiraOutlineButton(text = "PILIH SEMUA", onClick = { onSelectCount(installs.size) }, modifier = Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(NoxiraSpacing.sm))
+            Text("${selectedPackages.size} dipilih • Freeform otomatis menata jendela jika root aktif", style = NoxiraType.BodySmall)
             Spacer(Modifier.height(NoxiraSpacing.sm))
         }
 
