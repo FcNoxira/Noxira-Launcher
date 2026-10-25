@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.noxira.launcher.core.launcher.InstalledApp
 import com.noxira.launcher.core.launcher.LauncherEngine
+import com.noxira.launcher.core.launcher.LaunchResultStatus
 import com.noxira.launcher.core.prefs.NoxiraPrefsRepository
 import com.noxira.launcher.core.prefs.NoxiraSettings
 import com.noxira.launcher.core.root.RootManager
@@ -117,6 +118,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val s = _state.value.settings
             try {
                 if (_state.value.rootStatus == RootStatus.Available) {
+                    if (_state.value.freeformEnabled != true) {
+                        appendLog("PERINGATAN: Freeform belum terkonfirmasi aktif. Periksa status Freeform dan reboot jika baru diaktifkan.")
+                    }
                     engine.launchAllFreeform(
                         delaySeconds = s.launchDelaySec,
                         gapPx = s.windowGapPx,
@@ -124,18 +128,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         autoColumns = s.autoLayout,
                         log = ::appendLog,
                     )
+                    _state.update { it.copy(launchState = OperationState.SUCCESS) }
                 } else {
-                    // Fallback: standard intent for base Roblox package
-                    appendLog("Root tidak tersedia — launch via intent standar.")
-                    val installs = _state.value.robloxInstalls
+                    // No root: launch every detected Roblox install normally.
+                    // Freeform/grid cannot be forced without root access.
+                    appendLog("Root tidak tersedia — membuka Roblox secara normal; auto-freeform/grid tidak bisa dipaksa.")
+                    val installs = engine.detectRobloxInstalls()
+                    _state.update { it.copy(robloxInstalls = installs) }
                     if (installs.isEmpty()) {
-                        appendLog("Roblox tidak terinstal.")
+                        appendLog("Roblox tidak terdeteksi. Tekan Refresh Deteksi dan pastikan Roblox terpasang.")
+                        _state.update { it.copy(launchState = OperationState.ERROR) }
                     } else {
-                        val result = engine.launchViaIntent(installs.first().packageName)
-                        appendLog(result.message.ifBlank { "Berhasil." })
+                        var allLaunched = true
+                        installs.forEachIndexed { index, app ->
+                            appendLog("Membuka ${index + 1}/${installs.size}: ${app.packageName}")
+                            val result = engine.launchViaIntent(app.packageName)
+                            when (result.status) {
+                                LaunchResultStatus.OK -> appendLog("Berhasil membuka ${app.label}.")
+                                else -> {
+                                    allLaunched = false
+                                    appendLog("Gagal membuka ${app.packageName}: ${result.message.ifBlank { result.status.name }}")
+                                }
+                            }
+                            if (index < installs.lastIndex) kotlinx.coroutines.delay((s.launchDelaySec * 1000L).toLong())
+                        }
+                        _state.update { it.copy(launchState = if (allLaunched) OperationState.SUCCESS else OperationState.ERROR) }
                     }
                 }
-                _state.update { it.copy(launchState = OperationState.SUCCESS) }
             } catch (e: Exception) {
                 appendLog("Error: ${e.message}")
                 _state.update { it.copy(launchState = OperationState.ERROR) }
