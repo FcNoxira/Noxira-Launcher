@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. Compose handles all visual styling;
+         this XML theme exists only for the manifest reference and
+         the window background (prevents white flash on cold start). -->
+    <style name="Theme.Noxira" parent="android:Theme.Material.NoTitleBar">
+        <item name="android:windowBackground">#08090B</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:statusBarColor">#00000000</item>
+        <item name="android:navigationBarColor">#00000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

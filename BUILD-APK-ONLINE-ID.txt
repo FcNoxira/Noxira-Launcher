@@ -1,0 +1,14 @@
+MEMBUAT APK NOXIRA TANPA ANDROID STUDIO DI LAPTOP
+
+1. Buat akun/login GitHub di https://github.com
+2. Buat repository baru, misalnya NOXIRA (boleh Private).
+3. Ekstrak ZIP ini di laptop.
+4. Buka folder NOXIRA hasil ekstrak. Upload ISI folder NOXIRA ke repository GitHub (termasuk folder .github).
+   Pastikan build.gradle.kts dan settings.gradle.kts ada di root repository, bukan di dalam subfolder NOXIRA tambahan.
+5. Setelah upload selesai, buka tab Actions di repository.
+6. Pilih workflow "Build NOXIRA APK". Jika belum berjalan otomatis, pilih Run workflow.
+7. Tunggu hingga job selesai dengan tanda centang hijau.
+8. Buka hasil run, lalu unduh artifact "NOXIRA-debug-APK". Ekstrak file ZIP artifact untuk mendapatkan app-debug.apk.
+9. Kirim APK ke HP Android dan instal. Jika diminta, izinkan instalasi dari sumber tersebut.
+
+Catatan: GitHub Actions mengompilasi proyek di server online; Android SDK tidak perlu diinstal di laptop. Build bisa gagal jika ada masalah pada kode/dependensi proyek; jika gagal, kirim log error.

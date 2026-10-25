@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NOXIRA adaptive icon foreground — geometric X cross + diamond -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer ring -->
+    <path
+        android:strokeColor="#C8CDD5"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,14 A40,40 0 1,1 53.99,14 Z"/>
+
+    <!-- X cross arms -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#C8CDD5"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M35,35 L73,73"/>
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#C8CDD5"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M73,35 L35,73"/>
+
+    <!-- Center diamond -->
+    <path
+        android:fillColor="#C8CDD5"
+        android:pathData="M54,46 L62,54 L54,62 L46,54 Z"/>
+
+    <!-- Tick marks at 0°, 60°, 120°, 180°, 240°, 300° on inner ring r=28 -->
+    <path
+        android:strokeColor="#8A9099"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="
+          M54,22 L54,30
+          M79.12,39 L72.32,43
+          M79.12,69 L72.32,65
+          M54,86 L54,78
+          M28.88,69 L35.68,65
+          M28.88,39 L35.68,43
+        "/>
+
+</vector>
