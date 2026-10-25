@@ -12,6 +12,9 @@ jobs:
   build:
     name: Build debug APK
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -27,11 +30,34 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub-hosted Ubuntu images already include Android command-line tools.
+      # Avoid android-actions/setup-android, which was failing in this workflow.
+      - name: Locate Android SDK tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if [ ! -d "$ANDROID_HOME" ]; then
+            echo "Android SDK directory not found: $ANDROID_HOME"
+            ls -la /usr/local/lib/android || true
+            exit 1
+          fi
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1 || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager was not found in $ANDROID_HOME/cmdline-tools"
+            find "$ANDROID_HOME" -maxdepth 5 -type f -name sdkmanager 2>/dev/null | head -n 20 || true
+            exit 1
+          fi
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
 
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Accept Android SDK licenses and install packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Build APK
         run: gradle assembleDebug --stacktrace
