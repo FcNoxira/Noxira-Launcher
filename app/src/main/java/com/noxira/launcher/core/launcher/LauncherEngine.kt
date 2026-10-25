@@ -134,45 +134,63 @@ class LauncherEngine(private val context: Context) {
         autoColumns: Boolean,
         log: (String) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        val stacksResult = RootManager.listStacks()
-        if (stacksResult !is ShellResult.Ok) {
-            log("am stack list gagal.")
-            return@withContext
+        // Android may report tasks before freeform bounds have settled.
+        // Retry the whole layout so launches don't remain in their initial random positions.
+        repeat(3) { pass ->
+            if (pass > 0) delay(850L)
+            val stacksResult = RootManager.listStacks()
+            if (stacksResult !is ShellResult.Ok) {
+                log("Tidak bisa membaca daftar task (percobaan ${pass + 1}/3).")
+                return@repeat
+            }
+
+            val tasks = parseTasksFromStackList(stacksResult.stdout)
+                .filter { it.pkg.startsWith(PKG_ROBLOX_PREFIX) }
+                .distinctBy { it.taskId }
+                .sortedWith(compareBy<GridTask> { it.pkg }.thenBy { it.taskId })
+
+            if (tasks.isEmpty()) {
+                log("Belum ada Roblox task aktif (percobaan ${pass + 1}/3).")
+                return@repeat
+            }
+
+            val screen = getScreenSize()
+            val statusBarH = getStatusBarHeight()
+            val usableH = (screen.y - statusBarH).coerceAtLeast(1)
+            val n = tasks.size
+            val cols = if (autoColumns) bestColumns(n) else columnCount.coerceAtLeast(1)
+            val rows = ceil(n.toDouble() / cols).toInt().coerceAtLeast(1)
+            val safeGap = gapPx.coerceAtLeast(0).coerceAtMost(usableH / 12)
+            val cellH = ((usableH - safeGap * (rows + 1)) / rows).coerceAtLeast(1)
+
+            log("Auto-layout percobaan ${pass + 1}/3: $n jendela, grid target ${cols}x${rows}.")
+
+            // Center incomplete rows instead of leaving a lopsided empty cell on one side.
+            val rowCounts = (0 until rows).map { row ->
+                minOf(cols, n - row * cols).coerceAtLeast(0)
+            }
+            tasks.forEachIndexed { i, task ->
+                val row = i / cols
+                val indexInRow = i % cols
+                val countInRow = rowCounts.getOrElse(row) { 1 }.coerceAtLeast(1)
+                val rowWidth = (screen.x - safeGap * (countInRow + 1)).coerceAtLeast(countInRow)
+                val cellW = (rowWidth / countInRow).coerceAtLeast(1)
+                val rowLeft = ((screen.x - (cellW * countInRow + safeGap * (countInRow - 1))) / 2)
+                    .coerceAtLeast(0)
+                val left = rowLeft + indexInRow * (cellW + safeGap)
+                val top = statusBarH + safeGap + row * (cellH + safeGap)
+                val right = (left + cellW).coerceAtMost(screen.x)
+                val bottom = (top + cellH).coerceAtMost(screen.y)
+
+                val result = RootManager.resizeTask(task.taskId, left, top, right, bottom)
+                when (result) {
+                    is ShellResult.Ok -> log("  task ${task.taskId} (${task.pkg}) -> [$left,$top][$right,$bottom]")
+                    is ShellResult.Err -> log("  gagal mengatur task ${task.taskId}: ${result.stderr}")
+                    ShellResult.NoSu -> log("  root terputus saat mengatur task ${task.taskId}")
+                }
+            }
         }
-        val tasks = parseTasksFromStackList(stacksResult.stdout)
-            .filter { it.pkg.startsWith(PKG_ROBLOX_PREFIX) }
-
-        if (tasks.isEmpty()) {
-            log("Tidak ada Roblox task aktif.")
-            return@withContext
-        }
-
-        val screen = getScreenSize()
-        val statusBarH = getStatusBarHeight()
-        val usableH = screen.y - statusBarH
-
-        val n = tasks.size
-        val cols = if (autoColumns) bestColumns(n) else columnCount.coerceAtLeast(1)
-        val rows = ceil(n.toDouble() / cols).toInt()
-
-        val cellW = (screen.x - gapPx * (cols + 1)) / cols
-        val cellH = (usableH - gapPx * (rows + 1)) / rows
-
-        log("Grid ${cols}x${rows} — cell ${cellW}x${cellH}px — gap ${gapPx}px")
-
-        tasks.forEachIndexed { i, task ->
-            val col = i % cols
-            val row = i / cols
-            val l = gapPx + col * (cellW + gapPx)
-            val t = statusBarH + gapPx + row * (cellH + gapPx)
-            val r = l + cellW
-            val b = t + cellH
-
-            log("  taskId=${task.taskId} -> [$l,$t][$r,$b]")
-            RootManager.resizeTask(task.taskId, l, t, r, b)
-        }
-
-        log("Selesai. Koreksi ukuran: ${tasks.size} window.")
+        log("Auto-layout selesai. Jika posisi masih tidak berubah, ROM Android mungkin menolak resize freeform.")
     }
 
     // ── Stop all ──────────────────────────────────────────────────────────────
