@@ -32,6 +32,7 @@ data class NoxiraUiState(
 
     // Roblox
     val robloxInstalls: List<InstalledApp> = emptyList(),
+    val selectedRobloxPackages: Set<String> = emptySet(),
     val robloxRefreshing: Boolean = false,
 
     // Operations
@@ -104,11 +105,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(robloxRefreshing = true) }
         viewModelScope.launch {
             val installs = engine.detectRobloxInstalls()
-            _state.update { it.copy(robloxInstalls = installs, robloxRefreshing = false) }
+            _state.update { current ->
+                val existing = current.selectedRobloxPackages.intersect(installs.map { it.packageName }.toSet())
+                val selection = when {
+                    existing.isNotEmpty() -> existing
+                    installs.any { it.packageName == "com.roblox.client" } -> setOf("com.roblox.client")
+                    installs.isNotEmpty() -> setOf(installs.first().packageName)
+                    else -> emptySet()
+                }
+                current.copy(robloxInstalls = installs, selectedRobloxPackages = selection, robloxRefreshing = false)
+            }
         }
     }
 
-    // ── Launch all ────────────────────────────────────────────────────────────
+    fun toggleRobloxSelection(packageName: String, selected: Boolean) {
+        _state.update { current ->
+            val next = current.selectedRobloxPackages.toMutableSet()
+            if (selected) next.add(packageName) else next.remove(packageName)
+            current.copy(selectedRobloxPackages = next)
+        }
+    }
+
+    fun selectRobloxCount(count: Int) {
+        _state.update { current ->
+            val ordered = current.robloxInstalls.map { it.packageName }
+            current.copy(selectedRobloxPackages = ordered.take(count.coerceIn(0, ordered.size)).toSet())
+        }
+    }
+
+    // ── Launch selected Roblox installs ────────────────────────────────────────
 
     fun launchAllRoblox() {
         if (_state.value.launchState == OperationState.RUNNING) return
@@ -117,11 +142,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             clearLog()
             val s = _state.value.settings
             try {
+                val selected = _state.value.selectedRobloxPackages
+                if (selected.isEmpty()) {
+                    appendLog("Pilih minimal satu instalasi Roblox dulu.")
+                    _state.update { it.copy(launchState = OperationState.ERROR) }
+                    return@launch
+                }
                 if (_state.value.rootStatus == RootStatus.Available) {
                     if (_state.value.freeformEnabled != true) {
                         appendLog("PERINGATAN: Freeform belum terkonfirmasi aktif. Periksa status Freeform dan reboot jika baru diaktifkan.")
                     }
-                    engine.launchAllFreeform(
+                    engine.launchSelectedFreeform(
+                        selectedPackages = selected,
                         delaySeconds = s.launchDelaySec,
                         gapPx = s.windowGapPx,
                         columnCount = s.columnCount,
@@ -133,8 +165,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     // No root: launch every detected Roblox install normally.
                     // Freeform/grid cannot be forced without root access.
                     appendLog("Root tidak tersedia — membuka Roblox secara normal; auto-freeform/grid tidak bisa dipaksa.")
-                    val installs = engine.detectRobloxInstalls()
-                    _state.update { it.copy(robloxInstalls = installs) }
+                    val installs = engine.detectRobloxInstalls().filter { it.packageName in selected }
+                    _state.update { it.copy(robloxInstalls = engine.detectRobloxInstalls()) }
                     if (installs.isEmpty()) {
                         appendLog("Roblox tidak terdeteksi. Tekan Refresh Deteksi dan pastikan Roblox terpasang.")
                         _state.update { it.copy(launchState = OperationState.ERROR) }
