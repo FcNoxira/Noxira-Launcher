@@ -40,7 +40,7 @@ fun AboutScreen(onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(scrollState)
-                .padding(horizontal = NoxiraSpacing.md, bottom = 32.dp),
+                .padding(start = NoxiraSpacing.md, end = NoxiraSpacing.md, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(NoxiraSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
