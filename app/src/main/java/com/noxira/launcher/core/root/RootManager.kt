@@ -133,9 +133,22 @@ object RootManager {
      * Start Roblox in freeform windowing mode via root am start.
      * windowing mode 5 = WINDOWING_MODE_FREEFORM
      */
-    suspend fun amStartFreeform(pkg: String, activity: String): ShellResult = runSu(
-        "am start --windowingMode 5 -n $pkg/$activity"
-    )
+    suspend fun amStartFreeform(pkg: String, activity: String): ShellResult {
+        // Resolve the package's actual launcher activity instead of assuming
+        // every Roblox/App Cloner build uses com.roblox.client.ActivitySplash.
+        val result = runSu(
+            "am start --windowingMode 5 -a android.intent.action.MAIN " +
+                "-c android.intent.category.LAUNCHER -p '$pkg'"
+        )
+        if (result is ShellResult.Ok &&
+            (result.stdout.contains("Error:", ignoreCase = true) ||
+             result.stdout.contains("Exception", ignoreCase = true) ||
+             result.stdout.contains("does not exist", ignoreCase = true))
+        ) {
+            return ShellResult.Err(result.stdout, 1)
+        }
+        return result
+    }
 
     /**
      * Resize a task stack to given bounds.
